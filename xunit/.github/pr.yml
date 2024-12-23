@@ -1,0 +1,28 @@
+name: Build Bss.Testing.Xunit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'xunit/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore packages
+        working-directory: ./xunit/src
+        run: dotnet restore
+
+      - name: Build
+        working-directory: ./xunit/src
+        run: dotnet build ./Bss.Testing.Xunit.sln --no-restore
