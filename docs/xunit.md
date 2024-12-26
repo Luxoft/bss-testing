@@ -1,8 +1,13 @@
 # Integration Tests Xunit
+
+This is a custom framework for [xUnit](https://github.com/xunit/xunit) that allows to inject IServiceProvider into test classes.
+
+**How to use:**
  - Implement IFrameworkInitializer somewhere in your project.
- - Add [assembly: TestFramework("Bss.Testing.Xunit.TestFramework", "Bss.Testing.Xunit")]
+ - Add [assembly: TestFramework("Bss.Testing.Xunit.TestFramework", "Bss.Testing.Xunit")] attribute.
  - xUnit [Theory] should be replaced by [Bss.Testing.Xunit.Sdk.Theory] in order to use ability to initialize tests via injected ITestInitializeAndCleanup instead of Fixture/TestBase implementation
-Example:
+ 
+**Initializer Example:**
 ```
 [assembly: CollectionBehavior(CollectionBehavior.CollectionPerClass)]
 [assembly: TestFramework("Bss.Testing.Xunit.TestFramework", "Bss.Testing.Xunit")]
@@ -30,4 +35,16 @@ public class EnvironmentInitializer : IFrameworkInitializer
                 })
             .BuildServiceProvider();
 }
+```
+
+**Parameterized tests with data from the IServiceProvider:**
+Create a static method that accepts IServiceProvider and returns IEnumerable<object>. Pass that method to ServiceProviderMemberDataAttribute to use it as data source for Theory.
+
+```
+[Bss.Testing.Xunit.Sdk.Theory]
+[ServiceProviderMemberData(nameof(GetMemberData))]
+public void GetDataFromServiceProvider(FullSecurityRole role) => Assert.NotEmpty(role.Name);
+
+protected static IEnumerable<object> GetMemberData(IServiceProvider serviceProvider) =>
+    serviceProvider.GetRequiredService<ISecurityRoleSource>().SecurityRoles.Select(x => new [] { x });
 ```
