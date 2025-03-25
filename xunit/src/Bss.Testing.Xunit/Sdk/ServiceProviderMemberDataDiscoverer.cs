@@ -6,10 +6,16 @@ namespace Bss.Testing.Xunit.Sdk;
 public class ServiceProviderMemberDataDiscoverer : IDataDiscoverer
 {
     public IEnumerable<object[]> GetData(IAttributeInfo dataAttribute, IMethodInfo testMethod) =>
-        throw new ArgumentException($"ServiceProviderMemberDataDiscoverer cannot be used as discoverer for any *DataAttribute other than ServiceProviderMemberDataAttribute.");
+        throw new ArgumentException("ServiceProviderMemberDataDiscoverer cannot be used as discoverer for any *DataAttribute other than ServiceProviderMemberDataAttribute.");
 
     public IEnumerable<object[]>? GetData(IAttributeInfo dataAttribute, IMethodInfo testMethod, IServiceProvider? serviceProvider)
     {
+        if (serviceProvider == null)
+        {
+            throw new ArgumentException($"ServiceProvider cannot be null for {nameof(dataAttribute)}");
+        }
+
+
         if (dataAttribute is not IReflectionAttributeInfo reflectionDataAttribute
             || testMethod is not IReflectionMethodInfo reflectionTestMethod)
         {

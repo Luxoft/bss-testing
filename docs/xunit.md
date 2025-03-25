@@ -38,13 +38,21 @@ public class EnvironmentInitializer : IFrameworkInitializer
 ```
 
 **Parameterized tests with data from the IServiceProvider:**
-Create a static method that accepts IServiceProvider and returns IEnumerable<object>. Pass that method to ServiceProviderMemberDataAttribute to use it as data source for Theory.
+Create a instance method or property that returns IEnumerable<object>. Pass that method to ServiceProviderMemberDataAttribute to use it as data source for Theory.
 
 ```
 [Bss.Testing.Xunit.Sdk.Theory]
 [ServiceProviderMemberData(nameof(GetMemberData))]
 public void GetDataFromServiceProvider(FullSecurityRole role) => Assert.NotEmpty(role.Name);
 
-protected static IEnumerable<object> GetMemberData(IServiceProvider serviceProvider) =>
-    serviceProvider.GetRequiredService<ISecurityRoleSource>().SecurityRoles.Select(x => new [] { x });
+protected IEnumerable<object> GetMemberData() =>
+    this.ServiceProvider.GetRequiredService<ISecurityRoleSource>().SecurityRoles.Select(x => new [] { x });
+```
+
+```
+[Bss.Testing.Xunit.Sdk.Theory]
+[ServiceProviderMemberData(nameof(GetMemberData))]
+public void GetDataFromServiceProvider(FullSecurityRole role) => Assert.NotEmpty(role.Name);
+
+protected IEnumerable<object> GetMemberData => this.ServiceProvider.GetRequiredService<ISecurityRoleSource>().SecurityRoles.Select(x => new [] { x });
 ```
