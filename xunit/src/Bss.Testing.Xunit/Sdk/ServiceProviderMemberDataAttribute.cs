@@ -5,86 +5,101 @@ using Xunit.Sdk;
 
 using System.Reflection;
 
+using Microsoft.Extensions.DependencyInjection;
+
 namespace Bss.Testing.Xunit.Sdk;
 
 [DataDiscoverer("Bss.Testing.Xunit.Sdk.ServiceProviderMemberDataDiscoverer", "Bss.Testing.Xunit")]
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
-public class ServiceProviderMemberDataAttribute(string methodName) : DataAttribute
+public class ServiceProviderMemberDataAttribute(string methodOrPropertyName) : DataAttribute
 {
-    public Type? MemberType { get; set; }
+    public Type MemberType { get; set; }
 
-    string MemberName { get; set; } = methodName;
+    string MemberName { get; set; } = methodOrPropertyName;
 
-    public override IEnumerable<object[]>? GetData(MethodInfo testMethod) => null;
+    public override IEnumerable<object[]> GetData(MethodInfo testMethod) => null;
 
-    public IEnumerable<object[]>? GetData(MethodInfo testMethod, IServiceProvider? serviceProvider)
+    public IEnumerable<object[]> GetData(MethodInfo testMethod, IServiceProvider serviceProvider)
     {
         var type = this.MemberType ?? testMethod.DeclaringType;
-        if (type == null)
-        {
-            throw new ArgumentException(
-                string.Format(
-                    CultureInfo.CurrentCulture,
-                    "Could not find type {0}",
-                    type?.FullName)
-            );
-        }
+        var accessor = this.GetMethodAccessor(type, serviceProvider)
+                       ?? this.GetPropertyAccessor(type, serviceProvider);
 
-        var accessor = this.GetMethodAccessor(type, serviceProvider);
         if (accessor == null)
         {
             throw new ArgumentException(
                 string.Format(
                     CultureInfo.CurrentCulture,
-                    "Could not find public static method named '{0}' on {1}{2}",
+                    "Could not find parameterless method or property named '{0}' on {1} provided in ServiceProviderMemberDataAttribute",
                     this.MemberName,
-                    type?.FullName,
-                    " with parameter types: IServiceProvider")
+                    type?.FullName)
                 );
         }
 
         var obj = accessor();
         if (obj == null)
         {
-            return (IEnumerable<object[]>) Array.Empty<object>();
+            return null;
         }
 
         if (obj is not IEnumerable dataItems)
         {
-            throw new ArgumentException(string.Format(CultureInfo.CurrentCulture, "Method {0} on {1} did not return IEnumerable", this.MemberName, type?.FullName));
+            throw new ArgumentException(string.Format(CultureInfo.CurrentCulture, "Method/property {0} on {1} did not return IEnumerable", this.MemberName, type?.FullName));
         }
 
-        return dataItems.Cast<object>().Select(item => this.ConvertDataItem(testMethod, item))!;
+        return dataItems.Cast<object>().Select(item => this.ConvertDataItem(testMethod, item));
     }
 
-    protected Func<object>? GetMethodAccessor(Type type, IServiceProvider? serviceProvider)
+    private Func<object?>? GetMethodAccessor(Type type, IServiceProvider serviceProvider)
     {
         MethodInfo? methodInfo = null;
         for (var reflectionType = type; reflectionType != null; reflectionType = reflectionType.GetTypeInfo().BaseType)
         {
-            var runtimeMethodsWithGivenName = reflectionType.GetRuntimeMethods()
-                                                            .Where(m => m.Name == this.MemberName)
-                                                            .ToArray();
-
-            methodInfo = runtimeMethodsWithGivenName
-                .FirstOrDefault(m => m.GetParameters()
-                                      .Count(x => x.ParameterType.IsAssignableTo(typeof(IServiceProvider))) == 1);
-
+            methodInfo = reflectionType
+                             .GetRuntimeMethods()
+                             .FirstOrDefault(m => m.Name == this.MemberName);
             if (methodInfo != null)
             {
                 break;
             }
         }
 
-        if (methodInfo == null || !methodInfo.IsStatic)
+        if (methodInfo == null)
         {
             return null;
         }
 
-        return () => methodInfo.Invoke(null, [serviceProvider])!;
+        var @object = ActivatorUtilities.CreateInstance(serviceProvider, type);
+
+        return () => methodInfo.Invoke(@object, null);
     }
 
-    protected object[]? ConvertDataItem(MethodInfo testMethod, object? item)
+    private Func<object?>? GetPropertyAccessor(Type type, IServiceProvider serviceProvider)
+    {
+        PropertyInfo? propertyInfo = null;
+        for (var reflectionType = type; reflectionType != null; reflectionType = reflectionType.GetTypeInfo().BaseType)
+        {
+            propertyInfo = reflectionType
+                         .GetProperties()
+                         .FirstOrDefault(m => m.Name == this.MemberName);
+
+            if (propertyInfo != null)
+            {
+                break;
+            }
+        }
+
+        if (propertyInfo == null)
+        {
+            return null;
+        }
+
+        var @object = ActivatorUtilities.CreateInstance(serviceProvider, type);
+
+        return () => propertyInfo.GetValue(@object);
+    }
+
+    private object[]? ConvertDataItem(MethodInfo testMethod, object? item)
     {
         if (item == null)
         {
