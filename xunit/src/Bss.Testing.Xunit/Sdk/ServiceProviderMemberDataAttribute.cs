@@ -21,7 +21,7 @@ public class ServiceProviderMemberDataAttribute(string methodOrPropertyName) : D
 
     public IEnumerable<object[]> GetData(MethodInfo testMethod, IServiceProvider serviceProvider)
     {
-        var type = this.MemberType ?? testMethod.DeclaringType;
+        var type = this.MemberType ?? testMethod.ReflectedType;
         var accessor = this.GetMethodAccessor(type, serviceProvider)
                        ?? this.GetPropertyAccessor(type, serviceProvider);
 
